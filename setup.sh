@@ -9,14 +9,23 @@ echo "[INFO] Starting setup.sh script"
 echo "PYTHON = $(which python) -> $(python --version)"
 python -m pip --version
 
+# Upgrade pip, setuptools, and wheel
+echo "[INFO] Upgrading pip, setuptools, and wheel"
+python -m pip install --upgrade pip setuptools wheel || {
+    echo "[ERROR] Failed to upgrade pip, setuptools, or wheel";
+    exit 1;
+}
+echo "[INFO] pip, setuptools, and wheel upgraded successfully"
+python -m pip --version # Log upgraded pip version
+
 # Determine CUDA version and install the appropriate PyTorch version
 CUDA_VERSION="12.2"
 echo "[INFO] Detected CUDA version: $CUDA_VERSION"
 
 if [ "$CUDA_VERSION" = "12.2" ]; then
-    echo "[INFO] Installing PyTorch for CUDA 12.2"
-    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122 || {
-        echo "[ERROR] Failed to install PyTorch for CUDA 12.2";
+    echo "[INFO] Installing PyTorch for CUDA 12.2 (12.1 wheel)"
+    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121 || {
+        echo "[ERROR] Failed to install PyTorch for CUDA 12.1";
         exit 1;
     }
 else
