@@ -34,8 +34,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY onstart.sh /root/onstart.sh
 RUN chmod +x /root/onstart.sh
 
-# Automatically activate base env on login
-RUN echo 'source /opt/conda/etc/profile.d/conda.sh' >> /root/.bashrc && \
-    echo 'conda activate base' >> /root/.bashrc
-
 CMD ["/bin/bash"]
