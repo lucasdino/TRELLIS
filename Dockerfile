@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-py310_24.1.2-0-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -b -p $CONDA_DIR \
     && rm /tmp/miniconda.sh \
+    && $CONDA_DIR/bin/conda init bash \
+    && echo "conda activate base" >> /root/.bashrc \
     && $CONDA_DIR/bin/conda clean -afy
 
 # ---- Copy repo & helper script ----------------------------------------------
