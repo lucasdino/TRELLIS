@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -e
-set -x  # Enable debug mode to print each command before execution
 
 # Log the start of the script
 echo "[INFO] Starting setup.sh script"
@@ -29,8 +28,8 @@ PYTORCH_INDEX_URL="https://download.pytorch.org/whl/${PYTORCH_INDEX_URL_SUFFIX}"
 echo "[INFO] Targetting PyTorch for CUDA ${PYTORCH_CUDA_VERSION_TARGET} using index ${PYTORCH_INDEX_URL}"
 
 # Network connectivity test for PyTorch index
-echo "[INFO] Testing network connectivity to PyTorch index: ${PYTORCH_INDEX_URL}"
-curl --verbose --head ${PYTORCH_INDEX_URL}/torch/ || {
+# (Removed debug curl output)
+curl --head ${PYTORCH_INDEX_URL}/torch/ || {
     echo "[WARNING] curl command to PyTorch index failed. There might be network issues."
 }
 # Attempt to list directory content (HTML) from the index
@@ -40,7 +39,7 @@ curl -s ${PYTORCH_INDEX_URL}/torch/ | grep torch | head -n 5 || {
 
 
 echo "[INFO] Installing PyTorch and torchvision"
-python -m pip install --no-cache-dir -vvv --timeout 600 --retries 5 torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
+python -m pip install --no-cache-dir --timeout 600 --retries 5 torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
     echo "[ERROR] Failed to install PyTorch, torchvision, or torchaudio";
     exit 1;
 }
