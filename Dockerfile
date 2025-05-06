@@ -4,11 +4,12 @@ FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 # Set CUDA archs (Pascal to Ada)
 ENV DEBIAN_FRONTEND=noninteractive \
     TORCH_CUDA_ARCH_LIST="6.1;7.5;8.0;8.6;8.9+PTX" \
-    MAX_JOBS=8
+    MAX_JOBS=8 \
+    PYTHONPATH="/opt/trellis"
 
 # --- 1  system build essentials ---------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-dev git curl ninja-build build-essential cmake && \
+    python3 python3-dev git curl ninja-build build-essential cmake unzip git-lfs && \
     rm -rf /var/lib/apt/lists/*
 
 # --- 2  Python + core libraries ----------------------------------------------
@@ -42,8 +43,7 @@ WORKDIR /opt
 RUN git clone --depth 1 https://github.com/lucasdino/TRELLIS.git trellis
 WORKDIR /opt/trellis
 RUN chmod +x setup.sh && \
-    ./setup.sh --basic --xformers --flash-attn --diffoctreerast --spconv --mipgaussian --kaolin --nvdiffrast
+    ./setup.sh --diffoctreerast --nvdiffrast
 
 # --- 6  final entry ----------------------------------------------------------
-CMD ["/bin/bash"]
-    
+CMD ["/bin/bash"]    
