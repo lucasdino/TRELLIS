@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Properly initialize Conda and activate base
-eval "$(/opt/conda/bin/conda shell.bash hook)"
+source /opt/conda/etc/profile.d/conda.sh
 conda activate base
 
-# Run setup
 cd /opt/trellis
 ./setup.sh --basic --xformers --flash-attn --diffoctreerast --vox2seq --spconv --mipgaussian --kaolin --nvdiffrast --demo
