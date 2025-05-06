@@ -25,5 +25,13 @@ RUN git clone --depth=1 https://github.com/lucasdino/TRELLIS.git /opt/trellis &&
 COPY setup.sh /opt/trellis/setup.sh
 RUN chmod +x /opt/trellis/setup.sh
 
-# ---- Default ─ drop into a shell; you’ll run run_setup.sh next --------------
+# ---- Install additional packages ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    vim unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+# ---- Add onstart.sh to be executed on Vast.ai startup ----
+COPY onstart.sh /root/onstart.sh
+RUN chmod +x /root/onstart.sh
+
 CMD ["/bin/bash"]
