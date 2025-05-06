@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
+set -e
 set -x
+
+# confirm interpreter & pip
+echo "PYTHON = $(which python) -> $(python --version)"
+python -m pip --version
 
 # Read Arguments
 TEMP=$(getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo -n 'setup.sh' -- "$@")
@@ -114,6 +119,11 @@ if [ "$BASIC" = true ] ; then
     python -m pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d xatlas pyvista pymeshfix igraph transformers
     python -m pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
 fi
+
+echo "=== POST‐INSTALL CHECK ==="
+python -c "import imageio; print('Imported imageio from', imageio.__file__)"
+python -m pip show imageio
+echo "=== END POST‐INSTALL ==="
 
 if [ "$TRAIN" = true ] ; then
     python -m pip install tensorboard pandas lpips
