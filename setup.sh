@@ -1,10 +1,34 @@
 #!/usr/bin/env bash
 set -e
-set -x
+set -x  # Enable debug mode to print each command before execution
 
-# confirm interpreter & pip
+# Log the start of the script
+echo "[INFO] Starting setup.sh script"
+
+# Confirm interpreter & pip
 echo "PYTHON = $(which python) -> $(python --version)"
 python -m pip --version
+
+# Determine CUDA version and install the appropriate PyTorch version
+CUDA_VERSION="12.2"
+echo "[INFO] Detected CUDA version: $CUDA_VERSION"
+
+if [ "$CUDA_VERSION" = "12.2" ]; then
+    echo "[INFO] Installing PyTorch for CUDA 12.2"
+    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122 || {
+        echo "[ERROR] Failed to install PyTorch for CUDA 12.2";
+        exit 1;
+    }
+else
+    echo "[ERROR] Unsupported CUDA version: $CUDA_VERSION"
+    exit 1
+fi
+
+# Verify torch installation
+python -c "import torch; print(f'Torch version: {torch.__version__}')" || {
+    echo "[ERROR] Torch module not found after installation";
+    exit 1;
+}
 
 # Read Arguments
 TEMP=$(getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo -n 'setup.sh' -- "$@")
@@ -115,9 +139,11 @@ case $PLATFORM in
 esac
 
 if [ "$BASIC" = true ] ; then
+    echo "[INFO] Installing basic dependencies"
     conda install -y pytorch==2.4.0 torchvision==0.19.0 pytorch-cuda=11.8 -c pytorch -c nvidia
     python -m pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d xatlas pyvista pymeshfix igraph transformers
     python -m pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
+    echo "[INFO] Basic dependencies installed successfully"
 fi
 
 echo "=== POST‐INSTALL CHECK ==="
@@ -126,13 +152,16 @@ python -m pip show imageio
 echo "=== END POST‐INSTALL ==="
 
 if [ "$TRAIN" = true ] ; then
+    echo "[INFO] Installing training dependencies"
     python -m pip install tensorboard pandas lpips
     pip uninstall -y pillow
     sudo apt install -y libjpeg-dev
     python -m pip install pillow-simd
+    echo "[INFO] Training dependencies installed successfully"
 fi
 
 if [ "$XFORMERS" = true ] ; then
+    echo "[INFO] Installing xformers"
     # install xformers
     if [ "$PLATFORM" = "cuda" ] ; then
         if [ "$CUDA_VERSION" = "11.8" ] ; then
@@ -180,9 +209,11 @@ if [ "$XFORMERS" = true ] ; then
     else
         echo "[XFORMERS] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] xformers installed successfully"
 fi
 
 if [ "$FLASHATTN" = true ] ; then
+    echo "[INFO] Installing flash-attn"
     if [ "$PLATFORM" = "cuda" ] ; then
         python -m pip install flash-attn
     elif [ "$PLATFORM" = "hip" ] ; then
@@ -196,9 +227,11 @@ if [ "$FLASHATTN" = true ] ; then
     else
         echo "[FLASHATTN] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] flash-attn installed successfully"
 fi
 
 if [ "$KAOLIN" = true ] ; then
+    echo "[INFO] Installing kaolin"
     # install kaolin
     if [ "$PLATFORM" = "cuda" ] ; then
         case $PYTORCH_VERSION in
@@ -214,9 +247,11 @@ if [ "$KAOLIN" = true ] ; then
     else
         echo "[KAOLIN] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] kaolin installed successfully"
 fi
 
 if [ "$NVDIFFRAST" = true ] ; then
+    echo "[INFO] Installing nvdiffrast"
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone https://github.com/NVlabs/nvdiffrast.git /tmp/extensions/nvdiffrast
@@ -224,9 +259,11 @@ if [ "$NVDIFFRAST" = true ] ; then
     else
         echo "[NVDIFFRAST] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] nvdiffrast installed successfully"
 fi
 
 if [ "$DIFFOCTREERAST" = true ] ; then
+    echo "[INFO] Installing diffoctreerast"
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone --recurse-submodules https://github.com/JeffreyXiang/diffoctreerast.git /tmp/extensions/diffoctreerast
@@ -234,9 +271,11 @@ if [ "$DIFFOCTREERAST" = true ] ; then
     else
         echo "[DIFFOCTREERAST] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] diffoctreerast installed successfully"
 fi
 
 if [ "$MIPGAUSSIAN" = true ] ; then
+    echo "[INFO] Installing mip-splatting"
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone https://github.com/autonomousvision/mip-splatting.git /tmp/extensions/mip-splatting
@@ -244,9 +283,11 @@ if [ "$MIPGAUSSIAN" = true ] ; then
     else
         echo "[MIPGAUSSIAN] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] mip-splatting installed successfully"
 fi
 
 if [ "$VOX2SEQ" = true ] ; then
+    echo "[INFO] Installing vox2seq"
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         cp -r extensions/vox2seq /tmp/extensions/vox2seq
@@ -254,9 +295,11 @@ if [ "$VOX2SEQ" = true ] ; then
     else
         echo "[VOX2SEQ] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] vox2seq installed successfully"
 fi
 
 if [ "$SPCONV" = true ] ; then
+    echo "[INFO] Installing spconv"
     # install spconv
     if [ "$PLATFORM" = "cuda" ] ; then
         case $CUDA_MAJOR_VERSION in
@@ -267,8 +310,14 @@ if [ "$SPCONV" = true ] ; then
     else
         echo "[SPCONV] Unsupported platform: $PLATFORM"
     fi
+    echo "[INFO] spconv installed successfully"
 fi
 
 if [ "$DEMO" = true ] ; then
+    echo "[INFO] Installing demo dependencies"
     python -m pip install gradio==4.44.1 gradio_litmodel3d==0.0.1
+    echo "[INFO] Demo dependencies installed successfully"
 fi
+
+# Log the end of the script
+echo "[INFO] setup.sh script completed successfully"
