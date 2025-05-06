@@ -40,7 +40,7 @@ curl -s ${PYTORCH_INDEX_URL}/torch/ | grep torch | head -n 5 || {
 
 
 echo "[INFO] Installing PyTorch and torchvision"
-python -m pip install --no-cache-dir -vvv torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
+python -m pip install --no-cache-dir -vvv --timeout 600 --retries 5 torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
     echo "[ERROR] Failed to install PyTorch, torchvision, or torchaudio";
     exit 1;
 }
