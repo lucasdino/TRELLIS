@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -x
+
 # Read Arguments
 TEMP=$(getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo -n 'setup.sh' -- "$@")
 
