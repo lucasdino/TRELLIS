@@ -7,6 +7,7 @@ echo "[INFO] Starting setup.sh script"
 
 # Confirm interpreter & pip
 echo "PYTHON = $(which python) -> $(python --version)"
+echo "[INFO] Initial pip version:"
 python -m pip --version
 
 # Upgrade pip, setuptools, and wheel
@@ -15,27 +16,39 @@ python -m pip install --upgrade pip setuptools wheel || {
     echo "[ERROR] Failed to upgrade pip, setuptools, or wheel";
     exit 1;
 }
-echo "[INFO] pip, setuptools, and wheel upgraded successfully"
+echo "[INFO] pip, setuptools, and wheel upgrade attempt finished."
+echo "[INFO] Pip version after upgrade:"
 python -m pip --version # Log upgraded pip version
 
-# Determine CUDA version and install the appropriate PyTorch version
-CUDA_VERSION="12.2"
-echo "[INFO] Detected CUDA version: $CUDA_VERSION"
+# Define PyTorch target CUDA version and index URL
+# User indicated intent to use 12.1 for PyTorch wheels
+PYTORCH_CUDA_VERSION_TARGET="12.1"
+PYTORCH_INDEX_URL_SUFFIX="cu121" # Corresponds to CUDA 12.1 wheels
+PYTORCH_INDEX_URL="https://download.pytorch.org/whl/${PYTORCH_INDEX_URL_SUFFIX}"
 
-if [ "$CUDA_VERSION" = "12.2" ]; then
-    echo "[INFO] Installing PyTorch for CUDA 12.2 (12.1 wheel)"
-    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121 || {
-        echo "[ERROR] Failed to install PyTorch for CUDA 12.1";
-        exit 1;
-    }
-else
-    echo "[ERROR] Unsupported CUDA version: $CUDA_VERSION"
-    exit 1
-fi
+echo "[INFO] Targetting PyTorch for CUDA ${PYTORCH_CUDA_VERSION_TARGET} using index ${PYTORCH_INDEX_URL}"
+
+# Network connectivity test for PyTorch index
+echo "[INFO] Testing network connectivity to PyTorch index: ${PYTORCH_INDEX_URL}"
+curl --verbose --head ${PYTORCH_INDEX_URL}/torch/ || {
+    echo "[WARNING] curl command to PyTorch index failed. There might be network issues."
+}
+# Attempt to list directory content (HTML) from the index
+curl -s ${PYTORCH_INDEX_URL}/torch/ | grep torch | head -n 5 || {
+    echo "[WARNING] Could not retrieve or find torch entries from PyTorch index via curl."
+}
+
+
+echo "[INFO] Installing PyTorch and torchvision"
+python -m pip install --no-cache-dir -vvv torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
+    echo "[ERROR] Failed to install PyTorch, torchvision, or torchaudio";
+    exit 1;
+}
+echo "[INFO] PyTorch, torchvision, and torchaudio installation attempt finished."
 
 # Verify torch installation
-python -c "import torch; print(f'Torch version: {torch.__version__}')" || {
-    echo "[ERROR] Torch module not found after installation";
+python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'PyTorch CUDA available: {torch.cuda.is_available()}'); print(f'PyTorch CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')" || {
+    echo "[ERROR] Torch module not found or basic torch test failed after installation attempt";
     exit 1;
 }
 
@@ -149,6 +162,7 @@ esac
 
 if [ "$BASIC" = true ] ; then
     echo "[INFO] Installing basic dependencies"
+    # PyTorch is installed above, ensure no conflicting installs here
     python -m pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d xatlas pyvista pymeshfix igraph transformers
     python -m pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
     echo "[INFO] Basic dependencies installed successfully"
