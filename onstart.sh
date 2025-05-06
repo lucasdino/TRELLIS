@@ -2,6 +2,8 @@
 set -e
 set -x  # Enable debug mode to print each command before execution
 
+export PYTHONPATH=/opt/trellis:$PYTHONPATH
+
 source /opt/conda/etc/profile.d/conda.sh
 conda activate base || { echo "[ERROR] Failed to activate conda environment 'base'"; exit 1; }
 
