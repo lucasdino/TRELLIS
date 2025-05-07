@@ -40,11 +40,15 @@ RUN chmod +x /root/onstart.sh
 # ---- Add debug logs to Dockerfile ----
 RUN echo "[INFO] Starting Dockerfile build process"
 
+# Set PYTHONPATH for all future container sessions
+ENV PYTHONPATH="/opt/trellis:${PYTHONPATH}"
+
 # Verify Miniconda installation
 RUN $CONDA_DIR/bin/conda --version || { echo "[ERROR] Miniconda installation failed"; exit 1; }
 
 # Verify setup.sh script is executable
 RUN ls -l /opt/trellis/setup.sh || { echo "[ERROR] setup.sh script is not found or not executable"; exit 1; }
+
 
 # Verify onstart.sh script is executable
 RUN ls -l /root/onstart.sh || { echo "[ERROR] onstart.sh script is not found or not executable"; exit 1; }
