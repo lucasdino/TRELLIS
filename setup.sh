@@ -159,11 +159,29 @@ case $PLATFORM in
         ;;
 esac
 
+# Helper function for robust pip install with retries
+robust_pip_install() {
+    local package="$1"
+    local extra_args="${2:-}"
+    local max_retries=5
+    local count=0
+    local success=0
+    while [ $count -lt $max_retries ]; do
+        python -m pip install $package $extra_args && success=1 && break
+        echo "[WARN] pip install failed for $package (attempt $((count+1))/$max_retries), retrying in 10s..."
+        sleep 10
+        count=$((count+1))
+    done
+    if [ $success -ne 1 ]; then
+        echo "[ERROR] pip install failed for $package after $max_retries attempts. Exiting."
+        exit 1
+    fi
+}
+
 if [ "$BASIC" = true ] ; then
     echo "[INFO] Installing basic dependencies"
-    # PyTorch is installed above, ensure no conflicting installs here
-    python -m pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d xatlas pyvista pymeshfix igraph transformers
-    python -m pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
+    robust_pip_install "pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d xatlas pyvista pymeshfix igraph transformers"
+    robust_pip_install "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
     echo "[INFO] Basic dependencies installed successfully"
 fi
 
@@ -174,10 +192,10 @@ echo "=== END POST‐INSTALL ==="
 
 if [ "$TRAIN" = true ] ; then
     echo "[INFO] Installing training dependencies"
-    python -m pip install tensorboard pandas lpips
+    robust_pip_install "tensorboard pandas lpips"
     pip uninstall -y pillow
     sudo apt install -y libjpeg-dev
-    python -m pip install pillow-simd
+    robust_pip_install "pillow-simd"
     echo "[INFO] Training dependencies installed successfully"
 fi
 
@@ -187,48 +205,48 @@ if [ "$XFORMERS" = true ] ; then
     if [ "$PLATFORM" = "cuda" ] ; then
         if [ "$CUDA_VERSION" = "11.8" ] ; then
             case $PYTORCH_VERSION in
-                2.0.1) python -m pip install https://files.pythonhosted.org/packages/52/ca/82aeee5dcc24a3429ff5de65cc58ae9695f90f49fbba71755e7fab69a706/xformers-0.0.22-cp310-cp310-manylinux2014_x86_64.whl ;;
-                2.1.0) python -m pip install xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.1.1) python -m pip install xformers==0.0.23 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.1.2) python -m pip install xformers==0.0.23.post1 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.2.0) python -m pip install xformers==0.0.24 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.2.1) python -m pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.2.2) python -m pip install xformers==0.0.25.post1 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.3.0) python -m pip install xformers==0.0.26.post1 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.4.0) python -m pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.4.1) python -m pip install xformers==0.0.28 --index-url https://download.pytorch.org/whl/cu118 ;;
-                2.5.0) python -m pip install xformers==0.0.28.post2 --index-url https://download.pytorch.org/whl/cu118 ;;
-                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION" ;;
+                2.0.1) robust_pip_install "https://files.pythonhosted.org/packages/52/ca/82aeee5dcc24a3429ff5de65cc58ae9695f90f49fbba71755e7fab69a706/xformers-0.0.22-cp310-cp310-manylinux2014_x86_64.whl" ;;
+                2.1.0) robust_pip_install "xformers==0.0.22.post7" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.1.1) robust_pip_install "xformers==0.0.23" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.1.2) robust_pip_install "xformers==0.0.23.post1" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.2.0) robust_pip_install "xformers==0.0.24" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.2.1) robust_pip_install "xformers==0.0.25" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.2.2) robust_pip_install "xformers==0.0.25.post1" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.3.0) robust_pip_install "xformers==0.0.26.post1" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.4.0) robust_pip_install "xformers==0.0.27.post2" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.4.1) robust_pip_install "xformers==0.0.28" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                2.5.0) robust_pip_install "xformers==0.0.28.post2" "--index-url https://download.pytorch.org/whl/cu118" ;;
+                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION"; exit 1 ;;
             esac
         elif [ "$CUDA_VERSION" = "12.1" ] ; then
             case $PYTORCH_VERSION in
-                2.1.0) python -m pip install xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.1.1) python -m pip install xformers==0.0.23 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.1.2) python -m pip install xformers==0.0.23.post1 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.2.0) python -m pip install xformers==0.0.24 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.2.1) python -m pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.2.2) python -m pip install xformers==0.0.25.post1 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.3.0) python -m pip install xformers==0.0.26.post1 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.4.0) python -m pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.4.1) python -m pip install xformers==0.0.28 --index-url https://download.pytorch.org/whl/cu121 ;;
-                2.5.0) python -m pip install xformers==0.0.28.post2 --index-url https://download.pytorch.org/whl/cu121 ;;
-                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION" ;;
+                2.1.0) robust_pip_install "xformers==0.0.22.post7" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.1.1) robust_pip_install "xformers==0.0.23" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.1.2) robust_pip_install "xformers==0.0.23.post1" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.2.0) robust_pip_install "xformers==0.0.24" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.2.1) robust_pip_install "xformers==0.0.25" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.2.2) robust_pip_install "xformers==0.0.25.post1" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.3.0) robust_pip_install "xformers==0.0.26.post1" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.4.0) robust_pip_install "xformers==0.0.27.post2" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.4.1) robust_pip_install "xformers==0.0.28" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                2.5.0) robust_pip_install "xformers==0.0.28.post2" "--index-url https://download.pytorch.org/whl/cu121" ;;
+                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION"; exit 1 ;;
             esac
         elif [ "$CUDA_VERSION" = "12.4" ] ; then
             case $PYTORCH_VERSION in
-                2.5.0) python -m pip install xformers==0.0.28.post2 --index-url https://download.pytorch.org/whl/cu124 ;;
-                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION" ;;
+                2.5.0) robust_pip_install "xformers==0.0.28.post2" "--index-url https://download.pytorch.org/whl/cu124" ;;
+                *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION"; exit 1 ;;
             esac
         else
-            echo "[XFORMERS] Unsupported CUDA version: $CUDA_MAJOR_VERSION"
+            echo "[XFORMERS] Unsupported CUDA version: $CUDA_MAJOR_VERSION"; exit 1
         fi
     elif [ "$PLATFORM" = "hip" ] ; then
         case $PYTORCH_VERSION in
-            2.4.1\+rocm6.1) python -m pip install xformers==0.0.28 --index-url https://download.pytorch.org/whl/rocm6.1 ;;
-            *) echo "[XFORMERS] Unsupported PyTorch version: $PYTORCH_VERSION" ;;
+            2.4.1\+rocm6.1) robust_pip_install "xformers==0.0.28" "--index-url https://download.pytorch.org/whl/rocm6.1" ;;
+            *) echo "[XFORMERS] Unsupported PyTorch version: $PYTORCH_VERSION"; exit 1 ;;
         esac
     else
-        echo "[XFORMERS] Unsupported platform: $PLATFORM"
+        echo "[XFORMERS] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] xformers installed successfully"
 fi
@@ -247,6 +265,7 @@ if [ "$FLASHATTN" = true ] ; then
         cd $WORKDIR
     else
         echo "[FLASHATTN] Unsupported platform: $PLATFORM"
+        exit 1
     fi
     echo "[INFO] flash-attn installed successfully"
 fi
@@ -256,17 +275,17 @@ if [ "$KAOLIN" = true ] ; then
     # install kaolin
     if [ "$PLATFORM" = "cuda" ] ; then
         case $PYTORCH_VERSION in
-            2.0.1) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.0.1_cu118.html;;
-            2.1.0) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.0_cu118.html;;
-            2.1.1) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.1_cu118.html;;
-            2.2.0) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.0_cu118.html;;
-            2.2.1) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.1_cu118.html;;
-            2.2.2) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.2_cu118.html;;
-            2.4.0) python -m pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html;;
-            *) echo "[KAOLIN] Unsupported PyTorch version: $PYTORCH_VERSION" ;;
+            2.0.1) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.0.1_cu118.html";;
+            2.1.0) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.0_cu118.html";;
+            2.1.1) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.1_cu118.html";;
+            2.2.0) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.0_cu118.html";;
+            2.2.1) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.1_cu118.html";;
+            2.2.2) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.2.2_cu118.html";;
+            2.4.0) robust_pip_install "kaolin" "-f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html";;
+            *) echo "[KAOLIN] Unsupported PyTorch version: $PYTORCH_VERSION"; exit 1 ;;
         esac
     else
-        echo "[KAOLIN] Unsupported platform: $PLATFORM"
+        echo "[KAOLIN] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] kaolin installed successfully"
 fi
@@ -276,9 +295,9 @@ if [ "$NVDIFFRAST" = true ] ; then
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone https://github.com/NVlabs/nvdiffrast.git /tmp/extensions/nvdiffrast
-        python -m pip install /tmp/extensions/nvdiffrast
+        robust_pip_install "/tmp/extensions/nvdiffrast"
     else
-        echo "[NVDIFFRAST] Unsupported platform: $PLATFORM"
+        echo "[NVDIFFRAST] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] nvdiffrast installed successfully"
 fi
@@ -288,9 +307,9 @@ if [ "$DIFFOCTREERAST" = true ] ; then
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone --recurse-submodules https://github.com/JeffreyXiang/diffoctreerast.git /tmp/extensions/diffoctreerast
-        python -m pip install /tmp/extensions/diffoctreerast
+        robust_pip_install "/tmp/extensions/diffoctreerast"
     else
-        echo "[DIFFOCTREERAST] Unsupported platform: $PLATFORM"
+        echo "[DIFFOCTREERAST] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] diffoctreerast installed successfully"
 fi
@@ -300,9 +319,9 @@ if [ "$MIPGAUSSIAN" = true ] ; then
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         git clone https://github.com/autonomousvision/mip-splatting.git /tmp/extensions/mip-splatting
-        python -m pip install /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
+        robust_pip_install "/tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/"
     else
-        echo "[MIPGAUSSIAN] Unsupported platform: $PLATFORM"
+        echo "[MIPGAUSSIAN] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] mip-splatting installed successfully"
 fi
@@ -312,9 +331,9 @@ if [ "$VOX2SEQ" = true ] ; then
     if [ "$PLATFORM" = "cuda" ] ; then
         mkdir -p /tmp/extensions
         cp -r extensions/vox2seq /tmp/extensions/vox2seq
-        python -m pip install /tmp/extensions/vox2seq
+        robust_pip_install "/tmp/extensions/vox2seq"
     else
-        echo "[VOX2SEQ] Unsupported platform: $PLATFORM"
+        echo "[VOX2SEQ] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] vox2seq installed successfully"
 fi
@@ -324,19 +343,19 @@ if [ "$SPCONV" = true ] ; then
     # install spconv
     if [ "$PLATFORM" = "cuda" ] ; then
         case $CUDA_MAJOR_VERSION in
-            11) python -m pip install spconv-cu118 ;;
-            12) python -m pip install spconv-cu120 ;;
-            *) echo "[SPCONV] Unsupported PyTorch CUDA version: $CUDA_MAJOR_VERSION" ;;
+            11) robust_pip_install "spconv-cu118" ;;
+            12) robust_pip_install "spconv-cu120" ;;
+            *) echo "[SPCONV] Unsupported PyTorch CUDA version: $CUDA_MAJOR_VERSION"; exit 1 ;;
         esac
     else
-        echo "[SPCONV] Unsupported platform: $PLATFORM"
+        echo "[SPCONV] Unsupported platform: $PLATFORM"; exit 1
     fi
     echo "[INFO] spconv installed successfully"
 fi
 
 if [ "$DEMO" = true ] ; then
     echo "[INFO] Installing demo dependencies"
-    python -m pip install gradio==4.44.1 gradio_litmodel3d==0.0.1
+    robust_pip_install "gradio==4.44.1 gradio_litmodel3d==0.0.1"
     echo "[INFO] Demo dependencies installed successfully"
 fi
 

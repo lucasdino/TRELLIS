@@ -1,1 +1,1 @@
-import flexicubes
+from . import flexicubes
