@@ -114,7 +114,8 @@ fi
 
 # Get system information
 WORKDIR=$(pwd)
-PYTORCH_VERSION=$(python -c "import torch; print(torch.__version__)")
+PYTORCH_VERSION_FULL=$(python -c "import torch; print(torch.__version__)")
+PYTORCH_VERSION="${PYTORCH_VERSION_FULL/+cu*/}"
 PLATFORM=$(python -c "import torch; print(('cuda' if torch.version.cuda else ('hip' if torch.version.hip else 'unknown')) if torch.cuda.is_available() else 'cpu')")
 case $PLATFORM in
     cuda)
@@ -128,7 +129,7 @@ case $PLATFORM in
         HIP_MAJOR_VERSION=$(echo $HIP_VERSION | cut -d'.' -f1)
         HIP_MINOR_VERSION=$(echo $HIP_VERSION | cut -d'.' -f2)
         # Install pytorch 2.4.1 for hip
-        if [ "$PYTORCH_VERSION" != "2.4.1+rocm6.1" ] ; then
+        if [ "$PYTORCH_VERSION_FULL" != "2.4.1+rocm6.1" ] ; then
         echo "[SYSTEM] Installing PyTorch 2.4.1 for HIP ($PYTORCH_VERSION -> 2.4.1+rocm6.1)"
             python -m pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/rocm6.1 --user
             mkdir -p /tmp/extensions
