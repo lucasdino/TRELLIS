@@ -19,36 +19,22 @@ echo "[INFO] pip, setuptools, and wheel upgrade attempt finished."
 echo "[INFO] Pip version after upgrade:"
 python -m pip --version # Log upgraded pip version
 
-# Define PyTorch target CUDA version and index URL
-# User indicated intent to use 12.1 for PyTorch wheels
-PYTORCH_CUDA_VERSION_TARGET="12.1"
-PYTORCH_INDEX_URL_SUFFIX="cu121" # Corresponds to CUDA 12.1 wheels
-PYTORCH_INDEX_URL="https://download.pytorch.org/whl/${PYTORCH_INDEX_URL_SUFFIX}"
+# Set target CUDA version and corresponding PyTorch index URL
+PYTORCH_CUDA="12.1"
+PYTORCH_INDEX="https://download.pytorch.org/whl/test/cu121"
 
-echo "[INFO] Targetting PyTorch for CUDA ${PYTORCH_CUDA_VERSION_TARGET} using index ${PYTORCH_INDEX_URL}"
+echo "[INFO] Installing PyTorch 2.5.0 with CUDA ${PYTORCH_CUDA} support"
 
-# Network connectivity test for PyTorch index
-# (Removed debug curl output)
-curl --head ${PYTORCH_INDEX_URL}/torch/ || {
-    echo "[WARNING] curl command to PyTorch index failed. There might be network issues."
-}
-# Attempt to list directory content (HTML) from the index
-curl -s ${PYTORCH_INDEX_URL}/torch/ | grep torch | head -n 5 || {
-    echo "[WARNING] Could not retrieve or find torch entries from PyTorch index via curl."
+# Install PyTorch, torchvision, and torchaudio
+pip install torch==2.5.0 torchvision==0.16.0 torchaudio==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5 || {
+    echo "[ERROR] Installation failed"
+    exit 1
 }
 
-
-echo "[INFO] Installing PyTorch and torchvision"
-python -m pip install --no-cache-dir --timeout 600 --retries 5 torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL} || {
-    echo "[ERROR] Failed to install PyTorch, torchvision, or torchaudio";
-    exit 1;
-}
-echo "[INFO] PyTorch, torchvision, and torchaudio installation attempt finished."
-
-# Verify torch installation
-python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'PyTorch CUDA available: {torch.cuda.is_available()}'); print(f'PyTorch CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')" || {
-    echo "[ERROR] Torch module not found or basic torch test failed after installation attempt";
-    exit 1;
+# Verify installation
+python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')" || {
+    echo "[ERROR] Verification failed"
+    exit 1
 }
 
 # Read Arguments
@@ -230,7 +216,6 @@ if [ "$XFORMERS" = true ] ; then
                 2.4.0) robust_pip_install "xformers==0.0.27.post2" "--index-url https://download.pytorch.org/whl/cu121" ;;
                 2.4.1) robust_pip_install "xformers==0.0.28" "--index-url https://download.pytorch.org/whl/cu121" ;;
                 2.5.0) robust_pip_install "xformers==0.0.28.post2" "--index-url https://download.pytorch.org/whl/cu121" ;;
-                2.5.1) robust_pip_install "xformers==0.0.28.post2" "--index-url https://download.pytorch.org/whl/cu121" ;;
                 *) echo "[XFORMERS] Unsupported PyTorch & CUDA version: $PYTORCH_VERSION & $CUDA_VERSION"; exit 1 ;;
             esac
         elif [ "$CUDA_VERSION" = "12.4" ] ; then
