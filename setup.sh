@@ -11,31 +11,17 @@ python -m pip --version
 
 # Upgrade pip, setuptools, and wheel
 echo "[INFO] Upgrading pip, setuptools, and wheel"
-python -m pip install --upgrade pip setuptools wheel || {
-    echo "[ERROR] Failed to upgrade pip, setuptools, or wheel";
-    exit 1;
-}
+python -m pip install --upgrade pip setuptools wheel
 echo "[INFO] pip, setuptools, and wheel upgrade attempt finished."
 echo "[INFO] Pip version after upgrade:"
-python -m pip --version # Log upgraded pip version
+python -m pip --version
 
 # Set target CUDA version and corresponding PyTorch index URL
 PYTORCH_CUDA="12.1"
 PYTORCH_INDEX="https://download.pytorch.org/whl/test/cu121"
-
 echo "[INFO] Installing PyTorch 2.5.0 with CUDA ${PYTORCH_CUDA} support"
-
-# Install PyTorch
-pip install torch==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5 || {
-    echo "[ERROR] Installation failed"
-    exit 1
-}
-
-# Verify installation
-python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')" || {
-    echo "[ERROR] Verification failed"
-    exit 1
-}
+pip install torch==2.5.0 torchvision==0.16.0 torchaudio==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5
+python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')"
 
 # Read Arguments
 TEMP=$(getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo -n 'setup.sh' -- "$@")

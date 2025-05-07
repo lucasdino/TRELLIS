@@ -12,7 +12,9 @@ echo "[INFO] Starting setup.sh script with all flags except HELP and NEW_ENV"
 # ./setup.sh --basic --xformers --flash-attn --diffoctreerast --vox2seq --spconv --mipgaussian --kaolin --nvdiffrast --demo
 
 # Add to python path for trellis
-export PYTHONPATH=/opt/trellis:$PYTHONPATH
+# export PYTHONPATH=/opt/trellis:$PYTHONPATH
+# ./api/serve.sh
+
 
 # Log successful completion
 echo "[INFO] onstart.sh completed successfully"
