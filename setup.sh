@@ -137,9 +137,10 @@ case $PLATFORM in
             sudo chmod -R 777 .
             python -m pip install .
             cd $WORKDIR
-            PYTORCH_VERSION=$(python -c "import torch; print(torch.__version__)")
+            PYTORCH_VERSION_FULL=$(python -c "import torch; print(torch.__version__)")
+            PYTORCH_VERSION="${PYTORCH_VERSION_FULL/+cu*/}"
         fi
-        echo "[SYSTEM] PyTorch Version: $PYTORCH_VERSION, HIP Version: $HIP_VERSION"
+        echo "[SYSTEM] PyTorch Version: $PYTORCH_VERSION_FULL, HIP Version: $HIP_VERSION"
         ;;
     *)
         ;;
