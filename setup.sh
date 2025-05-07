@@ -25,8 +25,8 @@ PYTORCH_INDEX="https://download.pytorch.org/whl/test/cu121"
 
 echo "[INFO] Installing PyTorch 2.5.0 with CUDA ${PYTORCH_CUDA} support"
 
-# Install PyTorch, torchvision, and torchaudio
-pip install torch==2.5.0 torchvision==0.16.0 torchaudio==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5 || {
+# Install PyTorch
+pip install torch==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5 || {
     echo "[ERROR] Installation failed"
     exit 1
 }
