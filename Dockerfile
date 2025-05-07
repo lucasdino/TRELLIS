@@ -32,9 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# ---- Add onstart.sh to be executed on Vast.ai startup ----
+# ---- Add onstart.sh to be executed on startup ----
 COPY onstart.sh /root/onstart.sh
 RUN chmod +x /root/onstart.sh
+# RUN /root/onstart.sh
 
 # ---- Add debug logs to Dockerfile ----
 RUN echo "[INFO] Starting Dockerfile build process"
