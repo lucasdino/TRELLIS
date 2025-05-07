@@ -20,7 +20,7 @@ python -m pip --version
 PYTORCH_CUDA="12.1"
 PYTORCH_INDEX="https://download.pytorch.org/whl/test/cu121"
 echo "[INFO] Installing PyTorch 2.5.0 with CUDA ${PYTORCH_CUDA} support"
-pip install torch==2.5.0 torchvision==0.16.0 torchaudio==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5
+pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url ${PYTORCH_INDEX} --no-cache-dir --timeout 600 --retries 5
 python -c "import torch; print(f'[SUCCESS] PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else None}')"
 
 # Read Arguments
