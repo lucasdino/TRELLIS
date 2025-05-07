@@ -50,7 +50,7 @@ def generate():
 # ----------------------- entrypoint ------------------------------------------
 if __name__ == "__main__":
     # Vast.ai places the container’s external port number in $PORT
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", "5000"))
     host = "0.0.0.0"
     print(f"\n[TRELLIS] ⇨  connect to  http://<YOUR‑HOST>:{port}/generate\n")
     app.run(host=host, port=port, threaded=True)
