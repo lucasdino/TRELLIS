@@ -2,22 +2,26 @@
 """
 Run TRELLIS as a Flask API.
 POST /generate  form‑data:  file=<image>
-Returns:  trellis_result.zip  (contains .glb, .ply, preview.mp4)
+Returns:  multipart/x-mixed-replace stream with JSON progress updates, preview video and GLB model
 """
 
-import os, uuid, shutil, imageio, traceback, json
+import os, uuid, shutil, imageio, traceback, json, logging
 from flask import Flask, request, abort, Response
 from PIL import Image
 from rembg import remove
 from trellis.pipelines import TrellisImageTo3DPipeline
 from trellis.utils import render_utils, postprocessing_utils
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # ----------------------- model loads once at startup --------------------------
-print(" [TRELLIS] Loading model … (first run downloads weights)")
+print(" [TRELLIS] Loading model.")
 try:
     pipe = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
     pipe.cuda()
-    print(" [TRELLIS] Model ready")
+    print(" [TRELLIS] Model ready.")
 except Exception as e:
     print(f" [ERROR] Failed to load model: {e}")
     traceback.print_exc()
@@ -27,126 +31,109 @@ app = Flask(__name__)
 
 BOUNDARY = "frame"
 
-def generate_frames():
-    tmp_dir = None
+def send_progress_update(step, message):
+    """Helper function to send progress update to client and log it"""
+    logger.info(f"   [SENDING TO CLIENT] Progress update - {step}: {message}")
+    return f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
+           json.dumps({"status": "progress", "step": step, "message": message}) + \
+           "\r\n"
+
+def send_error_update(step, message):
+    """Helper function to send error update to client and log it"""
+    logger.error(f"   [SENDING TO CLIENT] Error message - {step}: {message}")
+    return f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
+           json.dumps({"status": "error", "step": step, "message": message}) + \
+           "\r\n"
+
+def send_file(file_path, mime_type, filename):
+    """Helper function to send a file to the client and log it"""
     try:
-        # Check for file in request
-        if "file" not in request.files or request.files["file"].filename == "":
-            print("[ERROR] No file in request")
-            # This error happens before we can stream, so abort is still okay.
-            # For streaming errors, we'd yield a JSON error.
-            abort(400, "No image uploaded (multipart/form‑data ‘file=…’)")
+        with open(file_path, 'rb') as f:
+            file_bytes = f.read()
+        file_size_kb = len(file_bytes) / 1024
+        logger.info(f"   [SENDING TO CLIENT] File {filename} ({file_size_kb:.2f}KB) with MIME type {mime_type}")
+        return f"--{BOUNDARY}\r\nContent-Type: {mime_type}\r\nContent-Disposition: attachment; filename=\"{filename}\"\r\n\r\n".encode() + \
+               file_bytes + b"\r\n"
+    except Exception as e:
+        logger.error(f"Failed to send file {filename}: {e}")
+        raise
 
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Preprocessing", "message": "Receiving and preparing image..."}) + \
-              "\r\n"
+# Generator function for streaming response
+def generate_frames_impl(image_data):
+    tmp_dir = None
+    temp_file_path = None
+    try:
+        # First yield: progress update
+        yield send_progress_update("Preprocessing", "Receiving and preparing image...")
 
-        # Read and preprocess image
-        img_file = request.files["file"].stream
-        img = Image.open(img_file)
+        # Create temporary directory for results
+        tmp_id = uuid.uuid4().hex
+        tmp_dir = os.path.join("/tmp", f"trellis_{tmp_id}")
+        os.makedirs(tmp_dir, exist_ok=True)
+        
+        # Save the image data to a temporary file
+        temp_file_path = os.path.join(tmp_dir, "input_image.png")
+        with open(temp_file_path, "wb") as f:
+            f.write(image_data)
+        
+        # Read and preprocess image from the saved file
+        img = Image.open(temp_file_path)
         
         if img.mode != "RGBA":
             img = remove(img)
 
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Preprocessing", "message": "Image preprocessing complete."}) + \
-              "\r\n"
+        yield send_progress_update("Preprocessing", "Image preprocessing complete.")
 
         # Run the model
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Generation", "message": "Starting 3D model generation..."}) + \
-              "\r\n"
+        yield send_progress_update("Generation", "Starting 3D model generation...")
         
-        out = pipe.run(img, seed=0)
+        out = pipe.run(img, seed=0) # pipe is globally accessible
 
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Generation", "message": "3D model generation complete. Processing outputs..."}) + \
-              "\r\n"
-
-        # Create temporary directory for results
-        tmp_id = uuid.uuid4().hex
-        tmp_dir = f"/tmp/trellis_{tmp_id}" # Consider making this OS-agnostic, e.g. tempfile.mkdtemp()
-        os.makedirs(tmp_dir, exist_ok=True)
+        yield send_progress_update("Generation", "3D model generation complete. Processing outputs...")
 
         # Generate turntable video
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Rendering Video", "message": "Rendering turntable video..."}) + \
-              "\r\n"
+        yield send_progress_update("Rendering Video", "Rendering turntable video...")
         video_path = os.path.join(tmp_dir, "preview.mp4")
         try:
             frames = render_utils.render_video(out["gaussian"][0])["color"]
             imageio.mimsave(video_path, frames, fps=30)
-            with open(video_path, 'rb') as f:
-                video_bytes = f.read()
-            yield f"--{BOUNDARY}\r\nContent-Type: video/mp4\r\nContent-Disposition: attachment; filename=\"preview.mp4\"\r\n\r\n".encode() + \
-                  video_bytes + b"\r\n"
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "progress", "step": "Rendering Video", "message": "Turntable video complete."}) + \
-                  "\r\n"
+            
+            # Send the video file
+            yield send_file(video_path, "video/mp4", "preview.mp4")
+            yield send_progress_update("Rendering Video", "Turntable video complete.")
         except Exception as e:
-            print(f"[ERROR] Failed to render turntable video: {e}")
+            logger.error(f"Failed to render turntable video: {e}")
             traceback.print_exc()
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "error", "step": "Rendering Video", "message": f"Failed to render turntable video: {str(e)}"}) + \
-                  "\r\n"
-
+            yield send_error_update("Rendering Video", f"Failed to render turntable video: {str(e)}")
 
         # Generate GLB mesh
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Generating GLB", "message": "Generating GLB mesh..."}) + \
-              "\r\n"
+        yield send_progress_update("Generating GLB", "Generating GLB mesh...")
         glb_path = os.path.join(tmp_dir, "output.glb")
         try:
             glb_mesh = postprocessing_utils.to_glb(out["gaussian"][0],
-                                                   out["mesh"][0],
-                                                   simplify=0.95,
-                                                   texture_size=1024)
+                                                  out["mesh"][0],
+                                                  simplify=0.95,
+                                                  texture_size=1024)
             glb_mesh.export(glb_path)
-            with open(glb_path, 'rb') as f:
-                glb_bytes = f.read()
-            yield f"--{BOUNDARY}\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=\"output.glb\"\r\n\r\n".encode() + \
-                  glb_bytes + b"\r\n"
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "progress", "step": "Generating GLB", "message": "GLB mesh complete."}) + \
-                  "\r\n"
+            
+            # Send the GLB file
+            yield send_file(glb_path, "application/octet-stream", "output.glb")
+            yield send_progress_update("Generating GLB", "GLB mesh complete.")
         except Exception as e:
-            print(f"[ERROR] Failed to generate GLB mesh: {e}")
+            logger.error(f"Failed to generate GLB mesh: {e}")
             traceback.print_exc()
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "error", "step": "Generating GLB", "message": f"Failed to generate GLB mesh: {str(e)}"}) + \
-                  "\r\n"
+            yield send_error_update("Generating GLB", f"Failed to generate GLB mesh: {str(e)}")
 
-        # Save point cloud
-        yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-              json.dumps({"status": "progress", "step": "Generating PLY", "message": "Generating PLY file..."}) + \
-              "\r\n"
-        ply_path = os.path.join(tmp_dir, "output.ply")
-        try:
-            out["gaussian"][0].save_ply(ply_path)
-            with open(ply_path, 'rb') as f:
-                ply_bytes = f.read()
-            yield f"--{BOUNDARY}\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=\"output.ply\"\r\n\r\n".encode() + \
-                  ply_bytes + b"\r\n"
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "progress", "step": "Generating PLY", "message": "PLY file complete."}) + \
-                  "\r\n"
-        except Exception as e:
-            print(f"[ERROR] Failed to save PLY file: {e}")
-            traceback.print_exc()
-            yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
-                  json.dumps({"status": "error", "step": "Generating PLY", "message": f"Failed to save PLY file: {str(e)}"}) + \
-                  "\r\n"
-
+        # Send completion message
+        logger.info("⮕ SENDING TO CLIENT: Process complete message")
         yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n" + \
               json.dumps({"status": "complete", "message": "All files generated."}) + \
               "\r\n"
         yield f"--{BOUNDARY}--\r\n" # End of multipart stream
 
     except Exception as e:
-        print(f"[ERROR] Exception occurred during generation stream: {e}")
+        logger.error(f"Exception occurred during generation stream: {e}")
         traceback.print_exc()
-        # Ensure the boundary is properly terminated if an error occurs mid-stream
-        # Note: The client might have already disconnected or might not parse this correctly if the stream is broken.
         error_message = json.dumps({"status": "error", "step": "Streaming", "message": f"Unhandled exception during generation: {str(e)}"})
         yield f"--{BOUNDARY}\r\nContent-Type: application/json\r\n\r\n{error_message}\r\n--{BOUNDARY}--\r\n"
     finally:
@@ -157,12 +144,41 @@ def generate_frames():
 @app.route("/generate", methods=["POST"])
 def generate():
     if pipe is None:
+        logger.error("Model not loaded")
         return "Model not loaded. Check server logs.", 503
-    return Response(generate_frames(), mimetype=f"multipart/x-mixed-replace; boundary={BOUNDARY}")
+
+    if "file" not in request.files or request.files["file"].filename == "":
+        logger.error("No file in request or empty filename")
+        error_payload = json.dumps({
+            "status": "error",
+            "step": "Initialization",
+            "message": "No image uploaded or filename empty. Please include a file in your request."
+        })
+        return Response(error_payload, status=400, mimetype="application/json")
+
+    try:
+        uploaded_file = request.files["file"]
+        logger.info(f"Received file upload: {uploaded_file.filename}")
+        
+        # Read the file data immediately to prevent stream closure issues
+        image_data = uploaded_file.read()
+        logger.info(f"Starting to stream response for request")
+        
+        # Call the implementation function with the image data
+        return Response(generate_frames_impl(image_data), mimetype=f"multipart/x-mixed-replace; boundary={BOUNDARY}")
+    except Exception as e:
+        logger.error(f"Error processing request: {e}")
+        traceback.print_exc()
+        error_payload = json.dumps({
+            "status": "error",
+            "step": "Initialization",
+            "message": f"Error processing request: {str(e)}"
+        })
+        return Response(error_payload, status=500, mimetype="application/json")
 
 # ----------------------- entrypoint ------------------------------------------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     host = "0.0.0.0"
-    print(f"\n[TRELLIS] ⇨  connect to  http://<YOUR‑HOST>:{port}/generate\n")
+    print(f"\n[TRELLIS] ⮕ Server ready. Connect to http://<YOUR‑HOST>:{port}/generate\n")
     app.run(host=host, port=port, threaded=True)
