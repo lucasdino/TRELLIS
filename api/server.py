@@ -113,6 +113,7 @@ def generate_frames_impl(image_data):
             yield send_error_update("Rendering Video", f"Failed to render turntable video: {str(e)}")
 
         # Generate GLB mesh
+        yield send_progress_update("Generating GLB", "Grilling your GLB mesh...")
         glb_path = os.path.join(tmp_dir, "output.glb")
         try:
             glb_mesh = postprocessing_utils.to_glb(out["gaussian"][0],
