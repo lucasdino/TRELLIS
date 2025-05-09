@@ -74,7 +74,7 @@ def generate_frames_impl(image_data):
     temp_file_path = None
     try:
         # First yield: progress update
-        yield send_progress_update("Preprocessing", "Preparing image...")
+        yield send_progress_update("Preprocessing", "Preparing ingredients...")
 
         # Create temporary directory for results
         tmp_id = uuid.uuid4().hex
@@ -92,31 +92,35 @@ def generate_frames_impl(image_data):
         if img.mode != "RGBA":
             img = remove(img)
 
-        yield send_progress_update("Preprocessing", "Image processed.")
-
         # Run the model
-        yield send_progress_update("Rendering Video", "Starting asset generation.")
+        yield send_progress_update("Rendering Video", "Cooking up your asset...")
         
         seed = random.randint(0, 2**32 - 1)  # Use a random seed
         out = pipe.run(img, seed=seed)
 
         # Generate turntable video
-        yield send_progress_update("Rendering Video", "Cooking up a preliminary video...")
+        yield send_progress_update("Rendering Video", "Serving you an appetizer...")
         video_path = os.path.join(tmp_dir, "preview.mp4")
         try:
             frames = render_utils.render_video(out["gaussian"][0])["color"]
             imageio.mimsave(video_path, frames, fps=30)
             logger.info(f"   [SENDING TO CLIENT] preview.mp4 on disk is {os.path.getsize(video_path)} bytes")
-            # Send the video file
-            yield send_file(video_path, "video/mp4", "preview.mp4")
-            yield send_progress_update("Rendering Video", "Turntable video complete.")
         except Exception as e:
             logger.error(f"Failed to render turntable video: {e}")
             traceback.print_exc()
             yield send_error_update("Rendering Video", f"Failed to render turntable video: {str(e)}")
 
+        # Send the video file
+        yield send_progress_update("Generating GLB", "Grilling your GLB mesh...")
+        try:
+            yield send_file(video_path, "video/mp4", "preview.mp4")
+        except Exception as e:
+            logger.error(f"Failed to send video: {e}")
+            traceback.print_exc()
+            yield send_error_update("Rendering Video", f"Failed to send turntable video: {str(e)}")
+            
         # Generate GLB mesh
-        yield send_progress_update("Generating GLB", "Generating GLB mesh...")
+    
         glb_path = os.path.join(tmp_dir, "output.glb")
         try:
             glb_mesh = postprocessing_utils.to_glb(out["gaussian"][0],
@@ -126,7 +130,7 @@ def generate_frames_impl(image_data):
             glb_mesh.export(glb_path)
             logger.info(f"   [SENDING TO CLIENT] output.glb on disk is {os.path.getsize(glb_path)} bytes")
             # Send the GLB file
-            yield send_progress_update("Generating GLB", "GLB meshed.")
+            yield send_progress_update("Generating GLB", "Bon Appetit!")
             yield send_file(glb_path, "application/octet-stream", "output.glb")
         except Exception as e:
             logger.error(f"Failed to generate GLB mesh: {e}")
