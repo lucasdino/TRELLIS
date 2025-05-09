@@ -93,34 +93,26 @@ def generate_frames_impl(image_data):
             img = remove(img)
 
         # Run the model
-        yield send_progress_update("Rendering Video", "Cooking up your asset...")
+        yield send_progress_update("Preprocessing", "Preparing your asset...")
         
         seed = random.randint(0, 2**32 - 1)  # Use a random seed
         out = pipe.run(img, seed=seed)
 
         # Generate turntable video
-        yield send_progress_update("Rendering Video", "Serving you an appetizer...")
+        yield send_progress_update("Rendering Video", "Did anyone tell you that you look great today?")
         video_path = os.path.join(tmp_dir, "preview.mp4")
         try:
             frames = render_utils.render_video(out["gaussian"][0])["color"]
             imageio.mimsave(video_path, frames, fps=30)
             logger.info(f"   [SENDING TO CLIENT] preview.mp4 on disk is {os.path.getsize(video_path)} bytes")
+            yield send_progress_update("Rendering Video", "Serving you an appetizer...")
+            yield send_file(video_path, "video/mp4", "preview.mp4")
         except Exception as e:
             logger.error(f"Failed to render turntable video: {e}")
             traceback.print_exc()
             yield send_error_update("Rendering Video", f"Failed to render turntable video: {str(e)}")
 
-        # Send the video file
-        yield send_progress_update("Generating GLB", "Grilling your GLB mesh...")
-        try:
-            yield send_file(video_path, "video/mp4", "preview.mp4")
-        except Exception as e:
-            logger.error(f"Failed to send video: {e}")
-            traceback.print_exc()
-            yield send_error_update("Rendering Video", f"Failed to send turntable video: {str(e)}")
-            
         # Generate GLB mesh
-    
         glb_path = os.path.join(tmp_dir, "output.glb")
         try:
             glb_mesh = postprocessing_utils.to_glb(out["gaussian"][0],
