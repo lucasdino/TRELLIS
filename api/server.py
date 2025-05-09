@@ -6,6 +6,7 @@ Returns:  multipart/x-mixed-replace stream with JSON progress updates, preview v
 """
 
 import os, uuid, shutil, imageio, traceback, json, logging
+import random
 from flask import Flask, request, abort, Response
 from PIL import Image
 from rembg import remove
@@ -96,7 +97,8 @@ def generate_frames_impl(image_data):
         # Run the model
         yield send_progress_update("Rendering Video", "Starting asset generation.")
         
-        out = pipe.run(img, seed=0)
+        seed = random.randint(0, 2**32 - 1)  # Use a random seed
+        out = pipe.run(img, seed=seed)
 
         # Generate turntable video
         yield send_progress_update("Rendering Video", "Cooking up a preliminary video...")
@@ -215,7 +217,8 @@ def generate_zip():
         if img.mode != 'RGBA':
             img = remove(img)
         # Run model
-        out = pipe.run(img, seed=0)
+        seed = random.randint(0, 2**32 - 1)  # Use a random seed
+        out = pipe.run(img, seed=seed)
         # Render video
         video_path = os.path.join(tmp_dir, 'preview.mp4')
         frames = render_utils.render_video(out['gaussian'][0])['color']
